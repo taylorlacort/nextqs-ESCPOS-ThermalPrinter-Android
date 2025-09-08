@@ -448,9 +448,6 @@ public class EscPosPrinterCommands {
         if (textSize == null) {
             textSize = EscPosPrinterCommands.TEXT_SIZE_NORMAL;
         }
-        if (textColor == null) {
-            textColor = EscPosPrinterCommands.TEXT_COLOR_BLACK;
-        }
         if (textReverseColor == null) {
             textReverseColor = EscPosPrinterCommands.TEXT_COLOR_REVERSE_OFF;
         }
