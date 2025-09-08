@@ -57,8 +57,7 @@ public class EscPosPrinterCommands {
     public static final byte[] TEXT_DOUBLE_STRIKE_OFF = new byte[]{0x1B, 0x47, 0x00};
     public static final byte[] TEXT_DOUBLE_STRIKE_ON = new byte[]{0x1B, 0x47, 0x01};
 
-    public static final byte[] TEXT_COLOR_BLACK = new byte[]{0x1B, 0x72, 0x00};
-    public static final byte[] TEXT_COLOR_RED = new byte[]{0x1B, 0x72, 0x01};
+
 
     public static final byte[] TEXT_COLOR_REVERSE_OFF = new byte[]{0x1D, 0x42, 0x00};
     public static final byte[] TEXT_COLOR_REVERSE_ON = new byte[]{0x1D, 0x42, 0x01};
@@ -529,7 +528,6 @@ public class EscPosPrinterCommands {
         try {
             this.printerConnection.write(new byte[]{0x1B, 0x74, (byte) charsetId});
             this.printerConnection.write(EscPosPrinterCommands.TEXT_SIZE_NORMAL);
-            this.printerConnection.write(EscPosPrinterCommands.TEXT_COLOR_BLACK);
             this.printerConnection.write(EscPosPrinterCommands.TEXT_COLOR_REVERSE_OFF);
             this.printerConnection.write(EscPosPrinterCommands.TEXT_WEIGHT_NORMAL);
             this.printerConnection.write(EscPosPrinterCommands.TEXT_UNDERLINE_OFF);
