@@ -498,7 +498,8 @@ public class EscPosPrinterCommands {
                 this.currentTextBold = textBold;
             }
 
-            if (!Arrays.equals(this.currentTextColor, textColor)) {
+            // Só envia comando de cor se textColor não for null
+            if (textColor != null && !Arrays.equals(this.currentTextColor, textColor)) {
                 this.printerConnection.write(textColor);
                 this.currentTextColor = textColor;
             }
