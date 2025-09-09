@@ -327,6 +327,13 @@ public class EscPosPrinterCommands {
             return this;
         }
         this.printerConnection.write(EscPosPrinterCommands.RESET_PRINTER);
+        // opcional: limpar caches locais (não envia comandos à impressora)
+        this.currentTextSize = new byte[0];
+        this.currentTextColor = new byte[0];
+        this.currentTextReverseColor = new byte[0];
+        this.currentTextBold = new byte[0];
+        this.currentTextUnderline = new byte[0];
+        this.currentTextDoubleStrike = new byte[0];
         return this;
     }
 
@@ -448,10 +455,9 @@ public class EscPosPrinterCommands {
         if (textSize == null) {
             textSize = EscPosPrinterCommands.TEXT_SIZE_NORMAL;
         }
-        // Remover padrão de cor preta: só envia comando se textColor != null
-        //if (textColor == null) {
-        //    textColor = EscPosPrinterCommands.TEXT_COLOR_BLACK;
-        //}
+        if (textColor == null) {
+            textColor = EscPosPrinterCommands.TEXT_COLOR_BLACK;
+        }
         if (textReverseColor == null) {
             textReverseColor = EscPosPrinterCommands.TEXT_COLOR_REVERSE_OFF;
         }
@@ -491,8 +497,7 @@ public class EscPosPrinterCommands {
                 this.currentTextBold = textBold;
             }
 
-            // Só envia comando de cor se textColor não for null
-            if (textColor != null && !Arrays.equals(this.currentTextColor, textColor)) {
+            if (!Arrays.equals(this.currentTextColor, textColor)) {
                 this.printerConnection.write(textColor);
                 this.currentTextColor = textColor;
             }

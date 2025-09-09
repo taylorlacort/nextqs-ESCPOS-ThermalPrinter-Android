@@ -109,7 +109,7 @@ public class PrinterTextParser {
     
     private EscPosPrinter printer;
     private byte[][] textSize = {EscPosPrinterCommands.TEXT_SIZE_NORMAL};
-    private byte[][] textColor = {EscPosPrinterCommands.TEXT_COLOR_BLACK};
+    private byte[][] textColor = {}; // sem default
     private byte[][] textReverseColor = {EscPosPrinterCommands.TEXT_COLOR_REVERSE_OFF};
     private byte[][] textBold = {EscPosPrinterCommands.TEXT_WEIGHT_NORMAL};
     private byte[][] textUnderline = {EscPosPrinterCommands.TEXT_UNDERLINE_OFF};
@@ -146,7 +146,7 @@ public class PrinterTextParser {
     }
 
     public byte[] getLastTextColor() {
-        return this.textColor[this.textColor.length - 1];
+        return this.textColor.length == 0 ? null : this.textColor[this.textColor.length - 1];
     }
 
     public PrinterTextParser addTextColor(byte[] newTextColor) {
