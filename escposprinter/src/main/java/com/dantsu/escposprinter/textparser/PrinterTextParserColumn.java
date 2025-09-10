@@ -323,7 +323,7 @@ public class PrinterTextParserColumn {
     }
 
     private PrinterTextParserColumn prependQRCode(String textAlign, Hashtable<String, String> qrCodeAttributes, String data) throws EscPosParserException, EscPosBarcodeException {
-        return this.prependElement(new PrinterTextParserBarcode(this, textAlign, qrCodeAttributes, data));
+        return this.prependElement(new PrinterTextParserQRCode(this, textAlign, qrCodeAttributes, data));
     }
 
     private PrinterTextParserColumn appendQRCode(String textAlign, Hashtable<String, String> qrCodeAttributes, String data) throws EscPosParserException, EscPosBarcodeException {
