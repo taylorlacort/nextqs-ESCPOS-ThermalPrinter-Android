@@ -602,9 +602,7 @@ public class EscPosPrinterCommands {
             this.printerConnection.write(bytes);
             this.printerConnection.send();
         }
-        // Garante avanço de linha após imagem
-        this.printerConnection.write(new byte[]{EscPosPrinterCommands.LF});
-        this.printerConnection.send();
+
         return this;
     }
 
@@ -644,7 +642,7 @@ public class EscPosPrinterCommands {
      * @param size       dot size of QR code pixel
      * @return Fluent interface
      */
-    public EscPosPrinterCommands printQRCode(int qrCodeType, String text, int size) throws EscPosEncodingException, EscPosConnectionException {
+    public EscPosPrinterCommands printQRCode(int qrCodeType, String text, int size) throws EscPosEncodingException {
         if (!this.printerConnection.isConnected()) {
             return this;
         }
@@ -655,34 +653,29 @@ public class EscPosPrinterCommands {
             size = 16;
         }
 
+
         try {
             byte[] textBytes = text.getBytes("UTF-8");
 
-            int commandLength = textBytes.length + 3;
-            int pL = commandLength % 256;
-            int pH = commandLength / 256;
+            int
+                commandLength = textBytes.length + 3,
+                pL = commandLength % 256,
+                pH = commandLength / 256;
 
-            // Seleciona modelo
+            /*byte[] qrCodeCommand = new byte[textBytes.length + 7];
+            System.arraycopy(new byte[]{0x1B, 0x5A, 0x00, 0x00, (byte)size, (byte)pL, (byte)pH}, 0, qrCodeCommand, 0, 7);
+            System.arraycopy(textBytes, 0, qrCodeCommand, 7, textBytes.length);
+            this.printerConnection.write(qrCodeCommand);*/
+
             this.printerConnection.write(new byte[]{0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, (byte) qrCodeType, 0x00});
-            // Define tamanho módulo
             this.printerConnection.write(new byte[]{0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, (byte) size});
-            // Define nível de correção (30 = "0")
             this.printerConnection.write(new byte[]{0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x30});
 
-            // Armazena dados
             byte[] qrCodeCommand = new byte[textBytes.length + 8];
             System.arraycopy(new byte[]{0x1D, 0x28, 0x6B, (byte) pL, (byte) pH, 0x31, 0x50, 0x30}, 0, qrCodeCommand, 0, 8);
             System.arraycopy(textBytes, 0, qrCodeCommand, 8, textBytes.length);
             this.printerConnection.write(qrCodeCommand);
-            // Flush intermediário necessário para alguns firmwares processarem os dados antes do comando de impressão
-            this.printerConnection.send();
-
-            // Imprime
             this.printerConnection.write(new byte[]{0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30});
-            // Avanço de linha para liberar buffer
-            this.printerConnection.write(new byte[]{EscPosPrinterCommands.LF});
-            // Flush final com pequeno wait (usa comprimento para calcular) + margem extra
-            this.printerConnection.send(40);
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
             throw new EscPosEncodingException(e.getMessage());

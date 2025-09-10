@@ -3,8 +3,8 @@ plugins {
     id 'maven-publish'
 }
 
-def libraryVersionCode = 5000010
-def libraryVersionName = "5.0.10"
+def libraryVersionCode = 5000000
+def libraryVersionName = "5.0.0"
 
 android {
     compileSdkVersion 33
