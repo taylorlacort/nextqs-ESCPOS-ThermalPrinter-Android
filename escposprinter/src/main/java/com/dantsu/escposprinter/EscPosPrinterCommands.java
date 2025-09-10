@@ -644,7 +644,7 @@ public class EscPosPrinterCommands {
      * @param size       dot size of QR code pixel
      * @return Fluent interface
      */
-    public EscPosPrinterCommands printQRCode(int qrCodeType, String text, int size) throws EscPosEncodingException {
+    public EscPosPrinterCommands printQRCode(int qrCodeType, String text, int size) throws EscPosEncodingException, EscPosConnectionException {
         if (!this.printerConnection.isConnected()) {
             return this;
         }
@@ -672,7 +672,7 @@ public class EscPosPrinterCommands {
             System.arraycopy(textBytes, 0, qrCodeCommand, 8, textBytes.length);
             this.printerConnection.write(qrCodeCommand);
             this.printerConnection.write(new byte[]{0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30});
-            // Garante avanço de linha após QRCode
+            // avanço de linha + flush
             this.printerConnection.write(new byte[]{EscPosPrinterCommands.LF});
             this.printerConnection.send();
         } catch (UnsupportedEncodingException e) {
