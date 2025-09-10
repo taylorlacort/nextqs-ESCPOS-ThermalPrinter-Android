@@ -602,8 +602,19 @@ public class EscPosPrinterCommands {
             this.printerConnection.write(bytes);
             this.printerConnection.send();
         }
-
+        // Boundary gráfico unificado
+        this.flushGraphicsBoundary();
         return this;
+    }
+
+    // Helper para finalizar blocos gráficos (imagem / QR) em firmwares sensíveis
+    private void flushGraphicsBoundary() throws EscPosConnectionException {
+        // Primeiro garante flush de tudo que foi escrito
+        this.printerConnection.send();
+        // Força quebra de linha (encerra modo gráfico em alguns firmwares)
+        this.printerConnection.write(new byte[]{EscPosPrinterCommands.LF});
+        // Flush final
+        this.printerConnection.send();
     }
 
     /**
@@ -642,7 +653,7 @@ public class EscPosPrinterCommands {
      * @param size       dot size of QR code pixel
      * @return Fluent interface
      */
-    public EscPosPrinterCommands printQRCode(int qrCodeType, String text, int size) throws EscPosEncodingException {
+    public EscPosPrinterCommands printQRCode(int qrCodeType, String text, int size) throws EscPosEncodingException, EscPosConnectionException {
         if (!this.printerConnection.isConnected()) {
             return this;
         }
@@ -653,29 +664,36 @@ public class EscPosPrinterCommands {
             size = 16;
         }
 
-
         try {
             byte[] textBytes = text.getBytes("UTF-8");
 
-            int
-                commandLength = textBytes.length + 3,
-                pL = commandLength % 256,
-                pH = commandLength / 256;
+            int commandLength = textBytes.length + 3;
+            int pL = commandLength % 256;
+            int pH = commandLength / 256;
 
-            /*byte[] qrCodeCommand = new byte[textBytes.length + 7];
-            System.arraycopy(new byte[]{0x1B, 0x5A, 0x00, 0x00, (byte)size, (byte)pL, (byte)pH}, 0, qrCodeCommand, 0, 7);
-            System.arraycopy(textBytes, 0, qrCodeCommand, 7, textBytes.length);
-            this.printerConnection.write(qrCodeCommand);*/
-
+            // Seleciona modelo
             this.printerConnection.write(new byte[]{0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, (byte) qrCodeType, 0x00});
+            // Define tamanho módulo
             this.printerConnection.write(new byte[]{0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, (byte) size});
+            // Define nível de correção (30 = "0")
             this.printerConnection.write(new byte[]{0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x30});
 
+            // Armazena dados
             byte[] qrCodeCommand = new byte[textBytes.length + 8];
             System.arraycopy(new byte[]{0x1D, 0x28, 0x6B, (byte) pL, (byte) pH, 0x31, 0x50, 0x30}, 0, qrCodeCommand, 0, 8);
             System.arraycopy(textBytes, 0, qrCodeCommand, 8, textBytes.length);
             this.printerConnection.write(qrCodeCommand);
+            // Flush intermediário (dados do QR precisam ser processados antes do comando Q)
+            this.printerConnection.send();
+
+            // Imprime (Q)
             this.printerConnection.write(new byte[]{0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30});
+            // Boundary gráfico (flush + LF + flush)
+            this.flushGraphicsBoundary();
+
+            // Opcional: feed adicional (~16 dots) caso ainda haja truncamento em modelos específicos
+            // this.printerConnection.write(new byte[]{0x1B, 0x4A, 0x10});
+            // this.printerConnection.send(16);
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
             throw new EscPosEncodingException(e.getMessage());
