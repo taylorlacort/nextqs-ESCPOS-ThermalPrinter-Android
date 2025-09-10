@@ -602,7 +602,9 @@ public class EscPosPrinterCommands {
             this.printerConnection.write(bytes);
             this.printerConnection.send();
         }
-
+        // Garante avanço de linha após imagem
+        this.printerConnection.write(new byte[]{EscPosPrinterCommands.LF});
+        this.printerConnection.send();
         return this;
     }
 
@@ -653,7 +655,6 @@ public class EscPosPrinterCommands {
             size = 16;
         }
 
-
         try {
             byte[] textBytes = text.getBytes("UTF-8");
 
@@ -661,11 +662,6 @@ public class EscPosPrinterCommands {
                 commandLength = textBytes.length + 3,
                 pL = commandLength % 256,
                 pH = commandLength / 256;
-
-            /*byte[] qrCodeCommand = new byte[textBytes.length + 7];
-            System.arraycopy(new byte[]{0x1B, 0x5A, 0x00, 0x00, (byte)size, (byte)pL, (byte)pH}, 0, qrCodeCommand, 0, 7);
-            System.arraycopy(textBytes, 0, qrCodeCommand, 7, textBytes.length);
-            this.printerConnection.write(qrCodeCommand);*/
 
             this.printerConnection.write(new byte[]{0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, (byte) qrCodeType, 0x00});
             this.printerConnection.write(new byte[]{0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, (byte) size});
@@ -676,6 +672,9 @@ public class EscPosPrinterCommands {
             System.arraycopy(textBytes, 0, qrCodeCommand, 8, textBytes.length);
             this.printerConnection.write(qrCodeCommand);
             this.printerConnection.write(new byte[]{0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30});
+            // Garante avanço de linha após QRCode
+            this.printerConnection.write(new byte[]{EscPosPrinterCommands.LF});
+            this.printerConnection.send();
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
             throw new EscPosEncodingException(e.getMessage());
