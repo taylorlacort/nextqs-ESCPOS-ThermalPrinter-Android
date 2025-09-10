@@ -162,12 +162,13 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
         }
 
         if (nbrWhiteByteToInsert > 0) {
-            int newByteWidth = byteWidth + nbrWhiteByteToInsert;
+            int newByteWidth = byteWidth + nbrWhiteByteToInsert; // nova largura após padding
             byte[] newImage = EscPosPrinterCommands.initGSv0Command(newByteWidth, height);
             for (int i = 0; i < height; i++) {
                 System.arraycopy(image, (byteWidth * i + 8), newImage, (newByteWidth * i + nbrWhiteByteToInsert + 8), byteWidth);
             }
             image = newImage;
+            byteWidth = newByteWidth; // atualiza para cálculo correto de length
         }
 
         this.length = (int) Math.ceil(((float) byteWidth * 8) / ((float) printer.getPrinterCharSizeWidthPx()));
@@ -192,7 +193,7 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
      */
     @Override
     public PrinterTextParserImg print(EscPosPrinterCommands printerSocket) throws EscPosConnectionException {
-        printerSocket.printImage(this.image);
+        printerSocket.printImage(this.image); // já adiciona LF internamente
         return this;
     }
 }
