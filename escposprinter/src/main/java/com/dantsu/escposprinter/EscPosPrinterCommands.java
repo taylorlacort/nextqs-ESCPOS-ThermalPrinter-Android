@@ -84,6 +84,8 @@ public class EscPosPrinterCommands {
     private boolean useEscAsteriskCommand;
     // Controla se adiciona automaticamente LF após blocos gráficos (imagem / QR)
     private boolean autoLfAfterGraphics = true;
+    // Modo mínimo: enviar somente os bytes do bloco gráfico (GS v 0 ou ESC *) sem LF extra e sem flushs múltiplos
+    private boolean minimalRawImageMode = false;
 
 
     public static byte[] initGSv0Command(int bytesByLine, int bitmapHeight) {
@@ -601,6 +603,17 @@ public class EscPosPrinterCommands {
     }
 
     /**
+     * Ativa modo "mínimo" para imagens: envia apenas o bloco gráfico (sem LF appended, sem conversões, um único send).
+     * Ignora também autoLfAfterGraphics enquanto ativo.
+     * Útil para diagnóstico de impressoras que travam após GS v 0.
+     * @param enable true para ativar
+     */
+    public EscPosPrinterCommands setMinimalRawImageMode(boolean enable) {
+        this.minimalRawImageMode = enable;
+        return this;
+    }
+
+    /**
      * Print image with the connected printer.
      *
      * @param image Bytes contain the image in ESC/POS command
@@ -610,18 +623,29 @@ public class EscPosPrinterCommands {
         if (!this.printerConnection.isConnected()) {
             return this;
         }
-
-        byte[][] bytesToPrint = this.useEscAsteriskCommand ? EscPosPrinterCommands.convertGSv0ToEscAsterisk(image) : new byte[][]{image};
-
-        for (byte[] bytes : bytesToPrint) {
-            this.printerConnection.write(bytes);
-            // Não envia imediatamente LF aqui; apenas flush do buffer de escrita
+        if (this.minimalRawImageMode) {
+            // Modo diagnóstico: envia só o GS v 0 (ou ESC *) puro, sem nenhum LF adicional
+            if (this.useEscAsteriskCommand) {
+                byte[][] blocks = EscPosPrinterCommands.convertGSv0ToEscAsterisk(image);
+                for (byte[] b : blocks) {
+                    this.printerConnection.write(b);
+                }
+            } else {
+                this.printerConnection.write(image);
+            }
+            // Um único flush no final
             this.printerConnection.send();
-        }
-        // Opcionalmente adiciona LF de boundary gráfico (testável)
-        if (this.autoLfAfterGraphics) {
-            this.printerConnection.write(new byte[]{EscPosPrinterCommands.LF});
-            this.printerConnection.send();
+            return this;
+        } else {
+            byte[][] bytesToPrint = this.useEscAsteriskCommand ? EscPosPrinterCommands.convertGSv0ToEscAsterisk(image) : new byte[][]{image};
+            for (byte[] bytes : bytesToPrint) {
+                this.printerConnection.write(bytes);
+                this.printerConnection.send();
+            }
+            if (this.autoLfAfterGraphics) {
+                this.printerConnection.write(new byte[]{EscPosPrinterCommands.LF});
+                this.printerConnection.send();
+            }
         }
         return this;
     }
