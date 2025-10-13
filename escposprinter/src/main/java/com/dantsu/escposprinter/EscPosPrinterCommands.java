@@ -82,6 +82,8 @@ public class EscPosPrinterCommands {
     private DeviceConnection printerConnection;
     private EscPosCharsetEncoding charsetEncoding;
     private boolean useEscAsteriskCommand;
+    // Controla se adiciona automaticamente LF após blocos gráficos (imagem / QR)
+    private boolean autoLfAfterGraphics = true;
 
 
     public static byte[] initGSv0Command(int bytesByLine, int bitmapHeight) {
@@ -586,6 +588,19 @@ public class EscPosPrinterCommands {
     }
 
     /**
+     * Enable/disable automatic line feed appended after image / QR code blocks.
+     * Alguns firmwares (ex: certos modelos Gertec) podem travar quando recebem LF extra
+     * imediatamente após GS v 0 ou sequência de QR. Desabilitar permite testar somente
+     * o bloco gráfico puro.
+     * @param enable true (default) para enviar LF ao final, false para suprimir.
+     * @return Fluent interface
+     */
+    public EscPosPrinterCommands setAutoLfAfterGraphics(boolean enable) {
+        this.autoLfAfterGraphics = enable;
+        return this;
+    }
+
+    /**
      * Print image with the connected printer.
      *
      * @param image Bytes contain the image in ESC/POS command
@@ -600,22 +615,18 @@ public class EscPosPrinterCommands {
 
         for (byte[] bytes : bytesToPrint) {
             this.printerConnection.write(bytes);
+            // Não envia imediatamente LF aqui; apenas flush do buffer de escrita
             this.printerConnection.send();
         }
-        // Boundary gráfico unificado
-        this.flushGraphicsBoundary();
+        // Opcionalmente adiciona LF de boundary gráfico (testável)
+        if (this.autoLfAfterGraphics) {
+            this.printerConnection.write(new byte[]{EscPosPrinterCommands.LF});
+            this.printerConnection.send();
+        }
         return this;
     }
 
-    // Helper para finalizar blocos gráficos (imagem / QR) em firmwares sensíveis
-    private void flushGraphicsBoundary() throws EscPosConnectionException {
-        // Primeiro garante flush de tudo que foi escrito
-        this.printerConnection.send();
-        // Força quebra de linha (encerra modo gráfico em alguns firmwares)
-        this.printerConnection.write(new byte[]{EscPosPrinterCommands.LF});
-        // Flush final
-        this.printerConnection.send();
-    }
+    // Removido flushGraphicsBoundary antigo para permitir controle fino de LF.
 
     /**
      * Print a barcode with the connected printer.
@@ -688,8 +699,11 @@ public class EscPosPrinterCommands {
 
             // Imprime (Q)
             this.printerConnection.write(new byte[]{0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30});
-            // Boundary gráfico (flush + LF + flush)
-            this.flushGraphicsBoundary();
+            this.printerConnection.send();
+            if (this.autoLfAfterGraphics) {
+                this.printerConnection.write(new byte[]{EscPosPrinterCommands.LF});
+                this.printerConnection.send();
+            }
 
             // Opcional: feed adicional (~16 dots) caso ainda haja truncamento em modelos específicos
             // this.printerConnection.write(new byte[]{0x1B, 0x4A, 0x10});
