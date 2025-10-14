@@ -12,6 +12,23 @@ import com.dantsu.escposprinter.exceptions.EscPosEncodingException;
 
 
 public class PrinterTextParserImg implements IPrinterTextParserElement {
+    // Modo de teste pós-imagem para diagnosticar travas de firmware.
+    public enum PostImageMode {
+        NONE,          // não envia nada além do bloco gráfico
+        LF,            // envia apenas LF (0x0A)
+        RESET_LF,      // ESC @ seguido de LF
+        RESET_LF_FEED  // ESC @ + LF + pequeno feed ESC J
+    }
+
+    private static PostImageMode configuredPostImageMode = PostImageMode.LF; // padrão
+
+    /**
+     * Configura globalmente o modo pós-impressão de imagem.
+     * @param mode PostImageMode
+     */
+    public static void setPostImageMode(PostImageMode mode) {
+        configuredPostImageMode = mode != null ? mode : PostImageMode.LF;
+    }
     
     /**
      * Convert Drawable instance to a hexadecimal string of the image data.
@@ -152,6 +169,29 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
                 nbrByteDiff = (int) Math.floor(((float) (printer.getPrinterWidthPx() - width)) / 8f),
                 nbrWhiteByteToInsert = 0;
 
+        int printerPxWidth = printer.getPrinterWidthPx();
+        // Se a imagem for mais larga que a cabeça de impressão, faz crop (corta à direita)
+        if (width > printerPxWidth && byteWidth > 0) {
+            int allowedByteWidth = (int) Math.floor(printerPxWidth / 8f);
+            if (allowedByteWidth <= 0) {
+                allowedByteWidth = byteWidth; // fallback, evita divisão por zero
+            }
+            if (allowedByteWidth < byteWidth) {
+                byte[] cropped = EscPosPrinterCommands.initGSv0Command(allowedByteWidth, height);
+                int lineSrcOffset;
+                int lineDstOffset;
+                for (int y = 0; y < height; y++) {
+                    lineSrcOffset = 8 + y * byteWidth;
+                    lineDstOffset = 8 + y * allowedByteWidth;
+                    System.arraycopy(image, lineSrcOffset, cropped, lineDstOffset, allowedByteWidth);
+                }
+                image = cropped;
+                byteWidth = allowedByteWidth;
+                width = byteWidth * 8;
+                nbrByteDiff = (int) Math.floor(((float) (printerPxWidth - width)) / 8f);
+            }
+        }
+
         switch (textAlign) {
             case PrinterTextParser.TAGS_ALIGN_CENTER:
                 nbrWhiteByteToInsert = Math.round(((float) nbrByteDiff) / 2f);
@@ -193,7 +233,30 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
      */
     @Override
     public PrinterTextParserImg print(EscPosPrinterCommands printerSocket) throws EscPosConnectionException {
-        printerSocket.printImage(this.image); // já adiciona LF internamente
+        // Imprime somente o bloco gráfico (modo mínimo) para isolar problema
+        printerSocket.setMinimalRawImageMode(true).setAutoLfAfterGraphics(false).printImage(this.image);
+
+        // Sequência de teste pós-imagem
+        switch (configuredPostImageMode) {
+            case NONE:
+                // Não envia nada adicional
+                break;
+            case LF:
+                printerSocket.newLine();
+                break;
+            case RESET_LF:
+                printerSocket.write(EscPosPrinterCommands.RESET_PRINTER);
+                printerSocket.send();
+                printerSocket.newLine();
+                break;
+            case RESET_LF_FEED:
+                printerSocket.write(EscPosPrinterCommands.RESET_PRINTER);
+                printerSocket.send();
+                printerSocket.newLine();
+                // Feed curto de 16 dots para garantir saída do modo gráfico
+                printerSocket.feedPaper(16);
+                break;
+        }
         return this;
     }
 }
