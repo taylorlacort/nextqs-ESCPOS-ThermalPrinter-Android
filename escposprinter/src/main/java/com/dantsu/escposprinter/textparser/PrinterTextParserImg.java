@@ -17,10 +17,12 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
         NONE,          // não envia nada além do bloco gráfico
         LF,            // envia apenas LF (0x0A)
         RESET_LF,      // ESC @ seguido de LF
-        RESET_LF_FEED  // ESC @ + LF + pequeno feed ESC J
+        RESET_LF_FEED, // ESC @ + LF + pequeno feed ESC J
+        LF_FEED,       // Apenas LF + pequeno feed ESC J (sem reset)
+        FULL_CLEAN     // Reset completo + LF + feed + reativa autoLfAfterGraphics e desativa minimalRawImageMode
     }
 
-    private static PostImageMode configuredPostImageMode = PostImageMode.LF; // padrão
+    private static PostImageMode configuredPostImageMode = PostImageMode.FULL_CLEAN; // padrão alterado para limpeza completa
 
     /**
      * Configura globalmente o modo pós-impressão de imagem.
@@ -254,6 +256,20 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
                 printerSocket.newLine();
                 // Feed curto de 16 dots para garantir saída do modo gráfico
                 printerSocket.feedPaper(16);
+                break;
+            case LF_FEED:
+                printerSocket.newLine();
+                printerSocket.feedPaper(16);
+                break;
+            case FULL_CLEAN:
+                // Reset completo da impressora
+                printerSocket.reset();
+                // Linha nova
+                printerSocket.newLine();
+                // Feed adicional para garantir flush de buffer gráfico
+                printerSocket.feedPaper(16);
+                // Reativa comportamento padrão para próximas impressões
+                printerSocket.setMinimalRawImageMode(false).setAutoLfAfterGraphics(true);
                 break;
         }
         return this;
