@@ -29,7 +29,8 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
      * @param mode PostImageMode
      */
     public static void setPostImageMode(PostImageMode mode) {
-        configuredPostImageMode = mode != null ? mode : PostImageMode.LF;
+        // Fallback agora sempre para FULL_CLEAN se nulo
+        configuredPostImageMode = mode != null ? mode : PostImageMode.FULL_CLEAN;
     }
     
     /**
@@ -235,11 +236,22 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
      */
     @Override
     public PrinterTextParserImg print(EscPosPrinterCommands printerSocket) throws EscPosConnectionException {
-        // Imprime somente o bloco gráfico (modo mínimo) para isolar problema
-        printerSocket.setMinimalRawImageMode(true).setAutoLfAfterGraphics(false).printImage(this.image);
+        // Detecta imagem vazia (largura/altura zero) para fallback direto
+        boolean isEmpty = (this.image == null
+                || this.image.length < 8
+                || (((int) this.image[4] & 0xFF) + ((int) this.image[5] & 0xFF) * 256) == 0
+                || (((int) this.image[6] & 0xFF) + ((int) this.image[7] & 0xFF) * 256) == 0);
+
+        if (!isEmpty) {
+            // Imprime somente o bloco gráfico (modo mínimo) para isolar problema
+            printerSocket.setMinimalRawImageMode(true).setAutoLfAfterGraphics(false).printImage(this.image);
+        }
+
+        // Se imagem vazia, força FULL_CLEAN independente do modo configurado
+        PostImageMode effectiveMode = isEmpty ? PostImageMode.FULL_CLEAN : configuredPostImageMode;
 
         // Sequência de teste pós-imagem
-        switch (configuredPostImageMode) {
+        switch (effectiveMode) {
             case NONE:
                 // Não envia nada adicional
                 break;
@@ -263,6 +275,16 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
                 break;
             case FULL_CLEAN:
                 // Reset completo da impressora
+                printerSocket.reset();
+                // Linha nova
+                printerSocket.newLine();
+                // Feed adicional para garantir flush de buffer gráfico
+                printerSocket.feedPaper(16);
+                // Reativa comportamento padrão para próximas impressões
+                printerSocket.setMinimalRawImageMode(false).setAutoLfAfterGraphics(true);
+                break;
+            default:
+          // Reset completo da impressora
                 printerSocket.reset();
                 // Linha nova
                 printerSocket.newLine();
