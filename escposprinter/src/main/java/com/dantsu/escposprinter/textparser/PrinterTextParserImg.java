@@ -245,13 +245,12 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
                 printerSocket.newLine();
                 break;
             case RESET_LF:
-                printerSocket.write(EscPosPrinterCommands.RESET_PRINTER);
-                printerSocket.send();
+                // Usa API pública reset() em vez de chamadas diretas write/send inexistentes
+                printerSocket.reset();
                 printerSocket.newLine();
                 break;
             case RESET_LF_FEED:
-                printerSocket.write(EscPosPrinterCommands.RESET_PRINTER);
-                printerSocket.send();
+                printerSocket.reset();
                 printerSocket.newLine();
                 // Feed curto de 16 dots para garantir saída do modo gráfico
                 printerSocket.feedPaper(16);
