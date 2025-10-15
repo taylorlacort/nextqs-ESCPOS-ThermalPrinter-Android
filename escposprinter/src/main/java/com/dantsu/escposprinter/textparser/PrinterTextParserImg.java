@@ -19,7 +19,8 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
         RESET_LF,      // ESC @ seguido de LF
         RESET_LF_FEED, // ESC @ + LF + pequeno feed ESC J
         LF_FEED,       // Apenas LF + pequeno feed ESC J (sem reset)
-        FULL_CLEAN     // Reset completo + LF + feed + reativa autoLfAfterGraphics e desativa minimalRawImageMode
+        FULL_CLEAN,    // Reset completo + LF + feed + reativa autoLfAfterGraphics e desativa minimalRawImageMode
+        RAW_ONLY       // Somente imagem crua, restaura flags
     }
 
     private static PostImageMode configuredPostImageMode = PostImageMode.FULL_CLEAN; // padrão alterado para limpeza completa
@@ -274,23 +275,19 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
                 printerSocket.feedPaper(16);
                 break;
             case FULL_CLEAN:
-                // Reset completo da impressora
                 printerSocket.reset();
-                // Linha nova
                 printerSocket.newLine();
-                // Feed adicional para garantir flush de buffer gráfico
                 printerSocket.feedPaper(16);
-                // Reativa comportamento padrão para próximas impressões
+                printerSocket.setMinimalRawImageMode(false).setAutoLfAfterGraphics(true);
+                break;
+            case RAW_ONLY:
+                // Apenas restaura flags, sem enviar bytes extras
                 printerSocket.setMinimalRawImageMode(false).setAutoLfAfterGraphics(true);
                 break;
             default:
-          // Reset completo da impressora
                 printerSocket.reset();
-                // Linha nova
                 printerSocket.newLine();
-                // Feed adicional para garantir flush de buffer gráfico
                 printerSocket.feedPaper(16);
-                // Reativa comportamento padrão para próximas impressões
                 printerSocket.setMinimalRawImageMode(false).setAutoLfAfterGraphics(true);
                 break;
         }
