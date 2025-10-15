@@ -435,45 +435,6 @@ public class EscPosPrinterCommands {
     private byte[] currentTextUnderline = new byte[0];
     private byte[] currentTextDoubleStrike = new byte[0];
 
-    // Configurações pós-imagem/QrCode (diagnóstico de travas)
-    private int postImageFeedDots = 16;      // feed padrão após FULL_CLEAN/RESET_LF_FEED/LF_FEED
-    private int postImageDelayMs = 0;        // delay opcional após imagem antes de texto
-
-    /**
-     * Define quantidade de dots para feed após sequência de limpeza pós-imagem.
-     * @param dots 0-255
-     */
-    public EscPosPrinterCommands setPostImageFeedDots(int dots) {
-        if (dots < 0) dots = 0;
-        if (dots > 255) dots = 255;
-        this.postImageFeedDots = dots;
-        return this;
-    }
-
-    /**
-     * Retorna dots configurados para feed pós-imagem.
-     */
-    public int getPostImageFeedDots() {
-        return this.postImageFeedDots;
-    }
-
-    /**
-     * Define delay (ms) a aplicar após imagem/QrCode antes do próximo texto.
-     * @param ms milissegundos (>=0, recomendações: 0, 50, 100)
-     */
-    public EscPosPrinterCommands setPostImageDelayMs(int ms) {
-        if (ms < 0) ms = 0;
-        this.postImageDelayMs = ms;
-        return this;
-    }
-
-    /**
-     * Retorna delay configurado.
-     */
-    public int getPostImageDelayMs() {
-        return this.postImageDelayMs;
-    }
-
     /**
      * Print text with the connected printer.
      *
@@ -494,10 +455,6 @@ public class EscPosPrinterCommands {
         if (textSize == null) {
             textSize = EscPosPrinterCommands.TEXT_SIZE_NORMAL;
         }
-        // Se textColor for null, não envia comando de cor
-        //if (textColor == null) {
-        //    textColor = EscPosPrinterCommands.TEXT_COLOR_BLACK;
-        //}
         if (textReverseColor == null) {
             textReverseColor = EscPosPrinterCommands.TEXT_COLOR_REVERSE_OFF;
         }

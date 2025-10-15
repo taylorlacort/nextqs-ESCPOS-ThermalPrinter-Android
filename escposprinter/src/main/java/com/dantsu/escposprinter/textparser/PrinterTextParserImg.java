@@ -12,27 +12,6 @@ import com.dantsu.escposprinter.exceptions.EscPosEncodingException;
 
 
 public class PrinterTextParserImg implements IPrinterTextParserElement {
-    // Modo de teste pós-imagem para diagnosticar travas de firmware.
-    public enum PostImageMode {
-        NONE,          // não envia nada além do bloco gráfico
-        LF,            // envia apenas LF (0x0A)
-        RESET_LF,      // ESC @ seguido de LF
-        RESET_LF_FEED, // ESC @ + LF + pequeno feed ESC J
-        LF_FEED,       // Apenas LF + pequeno feed ESC J (sem reset)
-        FULL_CLEAN,    // Reset completo + LF + feed + reativa autoLfAfterGraphics e desativa minimalRawImageMode
-        RAW_ONLY       // Somente imagem crua, restaura flags
-    }
-
-    private static PostImageMode configuredPostImageMode = PostImageMode.FULL_CLEAN; // padrão alterado para limpeza completa
-
-    /**
-     * Configura globalmente o modo pós-impressão de imagem.
-     * @param mode PostImageMode
-     */
-    public static void setPostImageMode(PostImageMode mode) {
-        // Fallback agora sempre para FULL_CLEAN se nulo
-        configuredPostImageMode = mode != null ? mode : PostImageMode.FULL_CLEAN;
-    }
     
     /**
      * Convert Drawable instance to a hexadecimal string of the image data.
@@ -173,29 +152,6 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
                 nbrByteDiff = (int) Math.floor(((float) (printer.getPrinterWidthPx() - width)) / 8f),
                 nbrWhiteByteToInsert = 0;
 
-        int printerPxWidth = printer.getPrinterWidthPx();
-        // Se a imagem for mais larga que a cabeça de impressão, faz crop (corta à direita)
-        if (width > printerPxWidth && byteWidth > 0) {
-            int allowedByteWidth = (int) Math.floor(printerPxWidth / 8f);
-            if (allowedByteWidth <= 0) {
-                allowedByteWidth = byteWidth; // fallback, evita divisão por zero
-            }
-            if (allowedByteWidth < byteWidth) {
-                byte[] cropped = EscPosPrinterCommands.initGSv0Command(allowedByteWidth, height);
-                int lineSrcOffset;
-                int lineDstOffset;
-                for (int y = 0; y < height; y++) {
-                    lineSrcOffset = 8 + y * byteWidth;
-                    lineDstOffset = 8 + y * allowedByteWidth;
-                    System.arraycopy(image, lineSrcOffset, cropped, lineDstOffset, allowedByteWidth);
-                }
-                image = cropped;
-                byteWidth = allowedByteWidth;
-                width = byteWidth * 8;
-                nbrByteDiff = (int) Math.floor(((float) (printerPxWidth - width)) / 8f);
-            }
-        }
-
         switch (textAlign) {
             case PrinterTextParser.TAGS_ALIGN_CENTER:
                 nbrWhiteByteToInsert = Math.round(((float) nbrByteDiff) / 2f);
@@ -206,13 +162,12 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
         }
 
         if (nbrWhiteByteToInsert > 0) {
-            int newByteWidth = byteWidth + nbrWhiteByteToInsert; // nova largura após padding
+            int newByteWidth = byteWidth + nbrWhiteByteToInsert;
             byte[] newImage = EscPosPrinterCommands.initGSv0Command(newByteWidth, height);
             for (int i = 0; i < height; i++) {
                 System.arraycopy(image, (byteWidth * i + 8), newImage, (newByteWidth * i + nbrWhiteByteToInsert + 8), byteWidth);
             }
             image = newImage;
-            byteWidth = newByteWidth; // atualiza para cálculo correto de length
         }
 
         this.length = (int) Math.ceil(((float) byteWidth * 8) / ((float) printer.getPrinterCharSizeWidthPx()));
@@ -237,64 +192,7 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
      */
     @Override
     public PrinterTextParserImg print(EscPosPrinterCommands printerSocket) throws EscPosConnectionException {
-        // Detecta imagem vazia (largura/altura zero) para fallback direto
-        boolean isEmpty = (this.image == null
-                || this.image.length < 8
-                || (((int) this.image[4] & 0xFF) + ((int) this.image[5] & 0xFF) * 256) == 0
-                || (((int) this.image[6] & 0xFF) + ((int) this.image[7] & 0xFF) * 256) == 0);
-
-        if (!isEmpty) {
-            // Imprime somente o bloco gráfico (modo mínimo) para isolar problema
-            printerSocket.setMinimalRawImageMode(true).setAutoLfAfterGraphics(false).printImage(this.image);
-        }
-
-        // Se imagem vazia, força FULL_CLEAN independente do modo configurado
-        PostImageMode effectiveMode = isEmpty ? PostImageMode.FULL_CLEAN : configuredPostImageMode;
-
-        // Sequência de teste pós-imagem
-        switch (effectiveMode) {
-            case NONE:
-                // Não envia nada adicional
-                break;
-            case LF:
-                printerSocket.newLine();
-                break;
-            case RESET_LF:
-                // Usa API pública reset() em vez de chamadas diretas write/send inexistentes
-                printerSocket.reset();
-                printerSocket.newLine();
-                break;
-            case RESET_LF_FEED:
-                printerSocket.reset();
-                printerSocket.newLine();
-                printerSocket.feedPaper(printerSocket.getPostImageFeedDots());
-                break;
-            case LF_FEED:
-                printerSocket.newLine();
-                printerSocket.feedPaper(printerSocket.getPostImageFeedDots());
-                break;
-            case FULL_CLEAN:
-                printerSocket.reset();
-                printerSocket.newLine();
-                printerSocket.feedPaper(printerSocket.getPostImageFeedDots());
-                printerSocket.setMinimalRawImageMode(false).setAutoLfAfterGraphics(true);
-                break;
-            case RAW_ONLY:
-                // Apenas restaura flags, sem enviar bytes extras
-                printerSocket.setMinimalRawImageMode(false).setAutoLfAfterGraphics(true);
-                break;
-            default:
-                printerSocket.reset();
-                printerSocket.newLine();
-                printerSocket.feedPaper(printerSocket.getPostImageFeedDots());
-                printerSocket.setMinimalRawImageMode(false).setAutoLfAfterGraphics(true);
-                break;
-        }
-        // Delay opcional após imagem para firmwares que precisam de tempo adicional
-        int delay = printerSocket.getPostImageDelayMs();
-        if (delay > 0) {
-            try { Thread.sleep(delay); } catch (InterruptedException ignored) {}
-        }
+        printerSocket.printImage(this.image);
         return this;
     }
 }
