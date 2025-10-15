@@ -267,17 +267,16 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
             case RESET_LF_FEED:
                 printerSocket.reset();
                 printerSocket.newLine();
-                // Feed curto de 16 dots para garantir saída do modo gráfico
-                printerSocket.feedPaper(16);
+                printerSocket.feedPaper(printerSocket.getPostImageFeedDots());
                 break;
             case LF_FEED:
                 printerSocket.newLine();
-                printerSocket.feedPaper(16);
+                printerSocket.feedPaper(printerSocket.getPostImageFeedDots());
                 break;
             case FULL_CLEAN:
                 printerSocket.reset();
                 printerSocket.newLine();
-                printerSocket.feedPaper(16);
+                printerSocket.feedPaper(printerSocket.getPostImageFeedDots());
                 printerSocket.setMinimalRawImageMode(false).setAutoLfAfterGraphics(true);
                 break;
             case RAW_ONLY:
@@ -287,9 +286,14 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
             default:
                 printerSocket.reset();
                 printerSocket.newLine();
-                printerSocket.feedPaper(16);
+                printerSocket.feedPaper(printerSocket.getPostImageFeedDots());
                 printerSocket.setMinimalRawImageMode(false).setAutoLfAfterGraphics(true);
                 break;
+        }
+        // Delay opcional após imagem para firmwares que precisam de tempo adicional
+        int delay = printerSocket.getPostImageDelayMs();
+        if (delay > 0) {
+            try { Thread.sleep(delay); } catch (InterruptedException ignored) {}
         }
         return this;
     }

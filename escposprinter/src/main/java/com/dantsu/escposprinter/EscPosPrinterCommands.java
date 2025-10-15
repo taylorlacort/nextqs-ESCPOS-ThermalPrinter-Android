@@ -82,10 +82,6 @@ public class EscPosPrinterCommands {
     private DeviceConnection printerConnection;
     private EscPosCharsetEncoding charsetEncoding;
     private boolean useEscAsteriskCommand;
-    // Controla se adiciona automaticamente LF após blocos gráficos (imagem / QR)
-    private boolean autoLfAfterGraphics = true;
-    // Modo mínimo: enviar somente os bytes do bloco gráfico (GS v 0 ou ESC *) sem LF extra e sem flushs múltiplos
-    private boolean minimalRawImageMode = false;
 
 
     public static byte[] initGSv0Command(int bytesByLine, int bitmapHeight) {
@@ -439,6 +435,45 @@ public class EscPosPrinterCommands {
     private byte[] currentTextUnderline = new byte[0];
     private byte[] currentTextDoubleStrike = new byte[0];
 
+    // Configurações pós-imagem/QrCode (diagnóstico de travas)
+    private int postImageFeedDots = 16;      // feed padrão após FULL_CLEAN/RESET_LF_FEED/LF_FEED
+    private int postImageDelayMs = 0;        // delay opcional após imagem antes de texto
+
+    /**
+     * Define quantidade de dots para feed após sequência de limpeza pós-imagem.
+     * @param dots 0-255
+     */
+    public EscPosPrinterCommands setPostImageFeedDots(int dots) {
+        if (dots < 0) dots = 0;
+        if (dots > 255) dots = 255;
+        this.postImageFeedDots = dots;
+        return this;
+    }
+
+    /**
+     * Retorna dots configurados para feed pós-imagem.
+     */
+    public int getPostImageFeedDots() {
+        return this.postImageFeedDots;
+    }
+
+    /**
+     * Define delay (ms) a aplicar após imagem/QrCode antes do próximo texto.
+     * @param ms milissegundos (>=0, recomendações: 0, 50, 100)
+     */
+    public EscPosPrinterCommands setPostImageDelayMs(int ms) {
+        if (ms < 0) ms = 0;
+        this.postImageDelayMs = ms;
+        return this;
+    }
+
+    /**
+     * Retorna delay configurado.
+     */
+    public int getPostImageDelayMs() {
+        return this.postImageDelayMs;
+    }
+
     /**
      * Print text with the connected printer.
      *
@@ -493,7 +528,7 @@ public class EscPosPrinterCommands {
             }
 
             if (!Arrays.equals(this.currentTextUnderline, textUnderline)) {
-                this.printerConnection.write(textUnderline);
+                this.printerConnection.write(textUnderline); 
                 this.currentTextUnderline = textUnderline;
             }
 
@@ -590,30 +625,6 @@ public class EscPosPrinterCommands {
     }
 
     /**
-     * Enable/disable automatic line feed appended after image / QR code blocks.
-     * Alguns firmwares (ex: certos modelos Gertec) podem travar quando recebem LF extra
-     * imediatamente após GS v 0 ou sequência de QR. Desabilitar permite testar somente
-     * o bloco gráfico puro.
-     * @param enable true (default) para enviar LF ao final, false para suprimir.
-     * @return Fluent interface
-     */
-    public EscPosPrinterCommands setAutoLfAfterGraphics(boolean enable) {
-        this.autoLfAfterGraphics = enable;
-        return this;
-    }
-
-    /**
-     * Ativa modo "mínimo" para imagens: envia apenas o bloco gráfico (sem LF appended, sem conversões, um único send).
-     * Ignora também autoLfAfterGraphics enquanto ativo.
-     * Útil para diagnóstico de impressoras que travam após GS v 0.
-     * @param enable true para ativar
-     */
-    public EscPosPrinterCommands setMinimalRawImageMode(boolean enable) {
-        this.minimalRawImageMode = enable;
-        return this;
-    }
-
-    /**
      * Print image with the connected printer.
      *
      * @param image Bytes contain the image in ESC/POS command
@@ -623,34 +634,16 @@ public class EscPosPrinterCommands {
         if (!this.printerConnection.isConnected()) {
             return this;
         }
-        if (this.minimalRawImageMode) {
-            // Modo diagnóstico: envia só o GS v 0 (ou ESC *) puro, sem nenhum LF adicional
-            if (this.useEscAsteriskCommand) {
-                byte[][] blocks = EscPosPrinterCommands.convertGSv0ToEscAsterisk(image);
-                for (byte[] b : blocks) {
-                    this.printerConnection.write(b);
-                }
-            } else {
-                this.printerConnection.write(image);
-            }
-            // Um único flush no final
+
+        byte[][] bytesToPrint = this.useEscAsteriskCommand ? EscPosPrinterCommands.convertGSv0ToEscAsterisk(image) : new byte[][]{image};
+
+        for (byte[] bytes : bytesToPrint) {
+            this.printerConnection.write(bytes);
             this.printerConnection.send();
-            return this;
-        } else {
-            byte[][] bytesToPrint = this.useEscAsteriskCommand ? EscPosPrinterCommands.convertGSv0ToEscAsterisk(image) : new byte[][]{image};
-            for (byte[] bytes : bytesToPrint) {
-                this.printerConnection.write(bytes);
-                this.printerConnection.send();
-            }
-            if (this.autoLfAfterGraphics) {
-                this.printerConnection.write(new byte[]{EscPosPrinterCommands.LF});
-                this.printerConnection.send();
-            }
         }
+
         return this;
     }
-
-    // Removido flushGraphicsBoundary antigo para permitir controle fino de LF.
 
     /**
      * Print a barcode with the connected printer.
@@ -688,7 +681,7 @@ public class EscPosPrinterCommands {
      * @param size       dot size of QR code pixel
      * @return Fluent interface
      */
-    public EscPosPrinterCommands printQRCode(int qrCodeType, String text, int size) throws EscPosEncodingException, EscPosConnectionException {
+    public EscPosPrinterCommands printQRCode(int qrCodeType, String text, int size) throws EscPosEncodingException {
         if (!this.printerConnection.isConnected()) {
             return this;
         }
@@ -699,39 +692,29 @@ public class EscPosPrinterCommands {
             size = 16;
         }
 
+
         try {
             byte[] textBytes = text.getBytes("UTF-8");
 
-            int commandLength = textBytes.length + 3;
-            int pL = commandLength % 256;
-            int pH = commandLength / 256;
+            int
+                commandLength = textBytes.length + 3,
+                pL = commandLength % 256,
+                pH = commandLength / 256;
 
-            // Seleciona modelo
+            /*byte[] qrCodeCommand = new byte[textBytes.length + 7];
+            System.arraycopy(new byte[]{0x1B, 0x5A, 0x00, 0x00, (byte)size, (byte)pL, (byte)pH}, 0, qrCodeCommand, 0, 7);
+            System.arraycopy(textBytes, 0, qrCodeCommand, 7, textBytes.length);
+            this.printerConnection.write(qrCodeCommand);*/
+
             this.printerConnection.write(new byte[]{0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, (byte) qrCodeType, 0x00});
-            // Define tamanho módulo
             this.printerConnection.write(new byte[]{0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, (byte) size});
-            // Define nível de correção (30 = "0")
             this.printerConnection.write(new byte[]{0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x30});
 
-            // Armazena dados
             byte[] qrCodeCommand = new byte[textBytes.length + 8];
             System.arraycopy(new byte[]{0x1D, 0x28, 0x6B, (byte) pL, (byte) pH, 0x31, 0x50, 0x30}, 0, qrCodeCommand, 0, 8);
             System.arraycopy(textBytes, 0, qrCodeCommand, 8, textBytes.length);
             this.printerConnection.write(qrCodeCommand);
-            // Flush intermediário (dados do QR precisam ser processados antes do comando Q)
-            this.printerConnection.send();
-
-            // Imprime (Q)
             this.printerConnection.write(new byte[]{0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30});
-            this.printerConnection.send();
-            if (this.autoLfAfterGraphics) {
-                this.printerConnection.write(new byte[]{EscPosPrinterCommands.LF});
-                this.printerConnection.send();
-            }
-
-            // Opcional: feed adicional (~16 dots) caso ainda haja truncamento em modelos específicos
-            // this.printerConnection.write(new byte[]{0x1B, 0x4A, 0x10});
-            // this.printerConnection.send(16);
         } catch (UnsupportedEncodingException e) {
             e.printStackTrace();
             throw new EscPosEncodingException(e.getMessage());
