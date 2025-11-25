@@ -1,5 +1,7 @@
 [![](https://jitpack.io/v/taylorlacort/nextqs-ESCPOS-ThermalPrinter-Android.svg)](https://jitpack.io/#taylorlacort/nextqs-ESCPOS-ThermalPrinter-Android)
 
+> **📢 Latest Version: 7.0.2** - Fixed image slicing to maintain visual continuity (no line breaks between strips)
+
 # Android library for ESC/POS Thermal Printer
 
 Useful library to help Android developers to print with (Bluetooth, TCP, USB) ESC/POS thermal printers.
@@ -59,7 +61,7 @@ To test this library, it's pretty simple !
 
 ## Installation
 
-**Step 1.** Add the [JitPack](https://jitpack.io/#taylorlacort/nextqs-ESCPOS-ThermalPrinter-Android/7.0.1) repository to your build file. Add it in your root `/build.gradle` at the end of repositories:
+**Step 1.** Add the [JitPack](https://jitpack.io/#taylorlacort/nextqs-ESCPOS-ThermalPrinter-Android/7.0.2) repository to your build file. Add it in your root `/build.gradle` at the end of repositories:
 
 ```
 allprojects {
@@ -75,7 +77,7 @@ allprojects {
 ```
 dependencies {
     ...
-    implementation 'com.github.taylorlacort:nextqs-ESCPOS-ThermalPrinter-Android:7.0.1'
+    implementation 'com.github.taylorlacort:nextqs-ESCPOS-ThermalPrinter-Android:7.0.2'
 }
 ```
 
@@ -290,7 +292,7 @@ EscPosPrinter printer = new EscPosPrinter(deviceConnection, 203, 48f, 32, new Es
 
 Some printer models (like Gertec) have firmware limitations when processing large continuous raster images (logos, QR codes). When printing large images, the printer may freeze or stop responding, causing subsequent text not to be printed.
 
-This library includes an **image slicing feature** (available since version 7.0.0) that automatically splits large images into smaller vertical strips to prevent these issues.
+This library includes an **image slicing feature** (available since version 7.0.0, perfected in 7.0.2) that automatically splits large images into smaller vertical strips to prevent these issues while maintaining visual continuity.
 
 ### How to Enable Image Slicing
 

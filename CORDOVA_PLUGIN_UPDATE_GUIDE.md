@@ -2,7 +2,7 @@
 
 ## 📋 Resumo das Mudanças
 
-Este guia descreve as alterações necessárias no plugin Cordova `nxtqs-thermal-printer-cordova-plugin` para habilitar o fatiamento automático de imagens/QR codes em impressoras Gertec usando a biblioteca versão **7.0.1**.
+Este guia descreve as alterações necessárias no plugin Cordova `nxtqs-thermal-printer-cordova-plugin` para habilitar o fatiamento automático de imagens/QR codes em impressoras Gertec usando a biblioteca versão **7.0.2**.
 
 ---
 
@@ -14,9 +14,13 @@ Permitir que o app Angular/Ionic passe o parâmetro `printerModel: 'gertec'` par
 
 ## 📦 Pré-requisitos
 
-- ✅ Biblioteca `nextqs-ESCPOS-ThermalPrinter-Android` versão **7.0.1** ou superior
+- ✅ Biblioteca `nextqs-ESCPOS-ThermalPrinter-Android` versão **7.0.2** ou superior
 - ✅ Plugin Cordova `nxtqs-thermal-printer-cordova-plugin` instalado
 - ✅ Projeto Android com Gradle configurado
+
+## 📢 Versão 7.0.2 - Correção Importante
+
+A versão 7.0.2 corrige um problema crítico onde o fatiamento inseria quebras de linha entre os strips da imagem, causando **linhas brancas visíveis** na impressão. Agora as imagens permanecem **completamente contínuas** durante o fatiamento.
 
 ---
 
@@ -36,7 +40,7 @@ dependencies {
 **Alterar para:**
 ```gradle
 dependencies {
-    implementation 'com.github.taylorlacort:nextqs-ESCPOS-ThermalPrinter-Android:7.0.1'
+    implementation 'com.github.taylorlacort:nextqs-ESCPOS-ThermalPrinter-Android:7.0.2'
 }
 ```
 
@@ -336,7 +340,7 @@ D/ThermalPrinter: ℹ️ Image slicing disabled (printerModel: '')
 
 | Arquivo | Alteração | Obrigatório? |
 |---------|-----------|--------------|
-| `build.gradle` | Atualizar versão para 7.0.1 | ✅ Sim |
+| `build.gradle` | Atualizar versão para 7.0.2 | ✅ Sim |
 | `ThermalPrinter.java` | Adicionar leitura de `printerModel` | ✅ Sim |
 | `ThermalPrinter.java` | Adicionar `if ("gertec")` + `setImageSlicing` | ✅ Sim |
 | `index.d.ts` | Adicionar `printerModel?: string` | ⚠️ Recomendado |
@@ -348,7 +352,7 @@ D/ThermalPrinter: ℹ️ Image slicing disabled (printerModel: '')
 
 Após implementar as mudanças, verifique:
 
-- [ ] `build.gradle` tem versão 7.0.1
+- [ ] `build.gradle` tem versão 7.0.2
 - [ ] Código Java lê `printerModel` do JSONObject
 - [ ] Código Java verifica `if ("gertec".equalsIgnoreCase(printerModel))`
 - [ ] Código Java chama `setImageSlicing(true)` para Gertec
@@ -487,10 +491,10 @@ export interface ThermalPrinterPlugin {
 
 ## 📚 Documentação de Referência
 
-- **Biblioteca nextqs-ESCPOS-ThermalPrinter-Android v7.0.1:**
+- **Biblioteca nextqs-ESCPOS-ThermalPrinter-Android v7.0.2:**
   - GitHub: https://github.com/taylorlacort/nextqs-ESCPOS-ThermalPrinter-Android
-  - Tag: https://github.com/taylorlacort/nextqs-ESCPOS-ThermalPrinter-Android/releases/tag/7.0.1
-  - JitPack: https://jitpack.io/#taylorlacort/nextqs-ESCPOS-ThermalPrinter-Android/7.0.1
+  - Tag: https://github.com/taylorlacort/nextqs-ESCPOS-ThermalPrinter-Android/releases/tag/7.0.2
+  - JitPack: https://jitpack.io/#taylorlacort/nextqs-ESCPOS-ThermalPrinter-Android/7.0.2
 
 - **Guias da Biblioteca:**
   - `README.md`: Documentação geral e API
@@ -536,5 +540,6 @@ Se encontrar problemas durante a implementação:
 ---
 
 **Data de criação:** 25/11/2025  
-**Versão da biblioteca:** 7.0.1  
+**Última atualização:** 25/11/2025  
+**Versão da biblioteca:** 7.0.2  
 **Compatibilidade:** Cordova 9+, Android 4.1+
