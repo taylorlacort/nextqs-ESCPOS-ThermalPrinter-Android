@@ -24,10 +24,9 @@ A biblioteca agora inclui um recurso de **fatiamento automático de imagens** qu
 1. A imagem completa é gerada normalmente como comando `GS v 0`
 2. O comando é analisado e dividido em múltiplas tiras horizontais
 3. Cada tira é enviada como um comando `GS v 0` separado com altura recalculada
-4. Entre cada tira, é inserido:
-   - Um line feed (`LF` / `0x0A`)
-   - Um delay de 50ms para recuperação da impressora
-5. O resultado visual é idêntico—as divisões são invisíveis para o usuário final
+4. Entre cada tira, é inserido um delay de **50ms** para recuperação da impressora
+5. **Nenhum Line Feed é inserido** - a imagem permanece visualmente contínua
+6. O resultado visual é idêntico—as divisões são invisíveis para o usuário final
 
 ### Estrutura do Comando GS v 0
 

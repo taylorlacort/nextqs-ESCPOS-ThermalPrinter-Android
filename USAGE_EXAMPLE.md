@@ -59,8 +59,7 @@ public EscPosPrinterCommands printImage(byte[] image) {
         this.printerConnection.send();
         
         if (this.enableImageSlicing && i < bytesToPrint.length - 1) {
-            this.printerConnection.write(new byte[]{LF});  // Line feed
-            this.printerConnection.send(50);                // 50ms delay
+            this.printerConnection.send(50);  // 50ms delay (sem Line Feed - imagem fica contínua)
         }
     }
 
@@ -90,15 +89,20 @@ public class PrinterExample {
             logo
         );
         
-        // 4. Montar layout com logo e QR code
+        // 4. Montar layout com logo e QR code (SEM linhas em branco desnecessárias)
         String text = 
             "[C]<img>" + logoHex + "</img>\n" +
-            "[L]\n" +
             "[C]<u><font size='big'>PEDIDO N°12345</font></u>\n" +
-            "[L]\n" +
-            "[L]Cliente: João Silva\n" +
-            "[L]Total: R$ 150,00\n" +
-            "[L]\n" +
+            "[C]" + format.format(new Date()) + "\n" +
+            "[C]================================\n" +
+            "[L]<b>Produto A</b>[R]R$ 50,00\n" +
+            "[L]<b>Produto B</b>[R]R$ 100,00\n" +
+            "[C]--------------------------------\n" +
+            "[R]TOTAL:[R]R$ 150,00\n" +
+            "[C]================================\n" +
+            "[L]<u>Cliente:</u>\n" +
+            "[L]João Silva\n" +
+            "[L]Rua Exemplo, 123\n" +
             "[C]<qrcode size='40'>PEDIDO-12345</qrcode>\n";
         
         // 5. ✅ IMPRIMIR - Logo e QR serão automaticamente fatiados!
@@ -120,10 +124,14 @@ public class PrinterExample {
         
         String logoHex = PrinterTextParserImg.bitmapToHexadecimalString(printer, logo);
         
+        // ✅ Layout compacto - evite linhas em branco desnecessárias
         String text = 
             "[C]<img>" + logoHex + "</img>\n" +
+            "[C]<u><font size='big'>PEDIDO N°12345</font></u>\n" +
+            "[C]================================\n" +
+            "[L]Item 1[R]R$ 10,00\n" +
             "[C]<qrcode size='40'>PEDIDO-12345</qrcode>\n" +
-            "[L]Texto após imagem imprime normalmente!\n";
+            "[C]Obrigado pela preferência!\n";
         
         printer.printFormattedTextAndCut(text);
     }
@@ -293,15 +301,16 @@ buildTicketLayout(ticket: any, printer: any): string {
 ### ✅ DEPOIS (Java - Solução Nativa)
 
 ```typescript
-buildTicketLayout(ticket: any): string {
-    // ✅ Código limpo - fatiamento automático no Java
-    return `
-        <img>${this.printableLogo}</img>
-        <qrcode size='40'>${ticket.id}</qrcode>
-    `;
-}
-
-async printReceipt(ticket: any, printer: any): Promise<void> {
+    buildTicketLayout(ticket: any): string {
+        // ✅ Código limpo e compacto - sem linhas em branco desnecessárias
+        return `[C]<img>${this.printableLogo}</img>
+[C]<u><font size='big'>PEDIDO N°${ticket.id}</font></u>
+[C]================================
+[L]Cliente: ${ticket.customer}
+[L]Total: R$ ${ticket.total}
+[C]<qrcode size='40'>${ticket.id}</qrcode>
+[C]Obrigado pela preferência!`;
+    }async printReceipt(ticket: any, printer: any): Promise<void> {
     const layout = this.buildTicketLayout(ticket);
     const printerModel = this.isGertec(printer) ? 'gertec' : '';
     

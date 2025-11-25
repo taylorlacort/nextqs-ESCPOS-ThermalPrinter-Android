@@ -612,9 +612,8 @@ public class EscPosPrinterCommands {
             this.printerConnection.write(bytesToPrint[i]);
             this.printerConnection.send();
             
-            // Add recovery sequence between strips (LF + small delay)
+            // Add small delay between strips for printer recovery (no line feed to keep image continuous)
             if (this.enableImageSlicing && i < bytesToPrint.length - 1) {
-                this.printerConnection.write(new byte[]{LF});
                 this.printerConnection.send(50);
             }
         }

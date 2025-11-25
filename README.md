@@ -313,8 +313,9 @@ printer
 When image slicing is enabled:
 1. Large images (logos, QR codes) are split into horizontal strips of configurable height
 2. Each strip is sent to the printer as a separate ESC/POS `GS v 0` command
-3. A line feed and small delay are inserted between strips for proper recovery
-4. The printer processes each strip independently, preventing buffer overflow or timeout issues
+3. A small delay (50ms) is inserted between strips for printer buffer recovery
+4. **The image remains visually continuous** - no line breaks are inserted between strips
+5. The printer processes each strip independently, preventing buffer overflow or timeout issues
 
 ### Configuration
 
@@ -349,11 +350,43 @@ public void printReceipt(DeviceConnection connection, boolean isGertec) {
 
 - The slicing algorithm splits the ESC/POS `GS v 0` raster command (format: `1D 76 30 m xL xH yL yH [payload]`)
 - Each strip is a complete `GS v 0` command with recalculated height
-- A line feed (`0x0A`) and 50ms delay are inserted between strips
+- A 50ms delay is inserted between strips (no line feed - image stays continuous)
 - Applies to all images: logos (`<img>`), QR codes (`<qrcode>`), and barcodes rendered as images
-- No visual difference in output—the splits are invisible to the end user
+- No visual difference in output—the image appears as a single continuous block
 
 ## Formatted text : syntax guide
+
+### Text Formatting Best Practices
+
+**⚠️ Avoid excessive blank lines** - Each `\n` or `[L]\n` creates a new line. For compact receipts (like the ones shown in photos), minimize unnecessary line breaks:
+
+```java
+// ❌ BAD - Too many blank lines (wastes paper)
+String text = 
+    "[C]<img>" + logoHex + "</img>\n" +
+    "[L]\n" +                              // Unnecessary blank line
+    "[C]ORDER N°12345\n" +
+    "[L]\n" +                              // Unnecessary blank line
+    "[L]Customer: John\n" +
+    "[L]\n" +                              // Unnecessary blank line
+    "[C]<qrcode>12345</qrcode>\n";
+
+// ✅ GOOD - Compact layout (saves paper)
+String text = 
+    "[C]<img>" + logoHex + "</img>\n" +
+    "[C]ORDER N°12345\n" +                 // No blank line after logo
+    "[C]================================\n" +
+    "[L]Customer: John\n" +                // No blank lines between items
+    "[L]Total: $50.00\n" +
+    "[C]<qrcode>12345</qrcode>\n" +       // No blank line before QR
+    "[C]Thank you!\n";                     // Optional closing text
+```
+
+**Spacing rules:**
+- Logo → Title: **No blank line needed**
+- Between sections: Use **separators** (`===`) instead of blank lines
+- Before QR code: **No blank line needed**
+- Between products: **No blank line needed** (only between sections if necessary)
 
 ### New line
 
