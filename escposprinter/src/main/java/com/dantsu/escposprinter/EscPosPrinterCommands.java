@@ -82,6 +82,8 @@ public class EscPosPrinterCommands {
     private DeviceConnection printerConnection;
     private EscPosCharsetEncoding charsetEncoding;
     private boolean useEscAsteriskCommand;
+    private boolean enableImageSlicing;
+    private int imageSliceLinesPerStrip;
 
 
     public static byte[] initGSv0Command(int bytesByLine, int bitmapHeight) {
@@ -302,6 +304,8 @@ public class EscPosPrinterCommands {
     public EscPosPrinterCommands(DeviceConnection printerConnection, EscPosCharsetEncoding charsetEncoding) {
         this.printerConnection = printerConnection;
         this.charsetEncoding = charsetEncoding != null ? charsetEncoding : new EscPosCharsetEncoding("windows-1252", 6);
+        this.enableImageSlicing = false;
+        this.imageSliceLinesPerStrip = 20;
     }
 
     /**
@@ -582,7 +586,7 @@ public class EscPosPrinterCommands {
     }
 
     /**
-     * Print image with the connected printer.
+     * Print an image with the connected printer.
      *
      * @param image Bytes contain the image in ESC/POS command
      * @return Fluent interface
@@ -592,11 +596,27 @@ public class EscPosPrinterCommands {
             return this;
         }
 
-        byte[][] bytesToPrint = this.useEscAsteriskCommand ? EscPosPrinterCommands.convertGSv0ToEscAsterisk(image) : new byte[][]{image};
+        byte[][] bytesToPrint;
 
-        for (byte[] bytes : bytesToPrint) {
-            this.printerConnection.write(bytes);
+        if (this.useEscAsteriskCommand) {
+            bytesToPrint = EscPosPrinterCommands.convertGSv0ToEscAsterisk(image);
+        } else if (this.enableImageSlicing) {
+            // Slice the image into strips
+            byte[][] strips = EscPosPrinterCommands.sliceGSv0Image(image, this.imageSliceLinesPerStrip);
+            bytesToPrint = strips;
+        } else {
+            bytesToPrint = new byte[][]{image};
+        }
+
+        for (int i = 0; i < bytesToPrint.length; i++) {
+            this.printerConnection.write(bytesToPrint[i]);
             this.printerConnection.send();
+            
+            // Add recovery sequence between strips (LF + small delay)
+            if (this.enableImageSlicing && i < bytesToPrint.length - 1) {
+                this.printerConnection.write(new byte[]{LF});
+                this.printerConnection.send(50);
+            }
         }
 
         return this;
@@ -740,6 +760,101 @@ public class EscPosPrinterCommands {
         this.printerConnection.write(new byte[]{0x1D, 0x56, 0x01});
         this.printerConnection.send(100);
         return this;
+    }
+
+    /**
+     * Enable or disable automatic image slicing for compatibility with printers like Gertec.
+     * When enabled, large images are split into smaller vertical strips to prevent firmware freezes.
+     *
+     * @param enable true to enable slicing, false to disable
+     * @return Fluent interface
+     */
+    public EscPosPrinterCommands setImageSlicing(boolean enable) {
+        this.enableImageSlicing = enable;
+        return this;
+    }
+
+    /**
+     * Set the number of lines per strip when image slicing is enabled.
+     *
+     * @param linesPerStrip Number of raster lines per strip (default: 20)
+     * @return Fluent interface
+     */
+    public EscPosPrinterCommands setImageSliceLinesPerStrip(int linesPerStrip) {
+        this.imageSliceLinesPerStrip = Math.max(1, linesPerStrip);
+        return this;
+    }
+
+    /**
+     * Split a GS v 0 raster image into multiple smaller vertical strips.
+     * Each strip is a complete GS v 0 command with recalculated height.
+     *
+     * @param gsv0Image Original GS v 0 image bytes
+     * @param linesPerStrip Number of raster lines per strip
+     * @return Array of byte arrays, each containing a complete GS v 0 strip command
+     */
+    private static byte[][] sliceGSv0Image(byte[] gsv0Image, int linesPerStrip) {
+        if (gsv0Image == null || gsv0Image.length < 8) {
+            return new byte[][]{gsv0Image};
+        }
+
+        // Validate GS v 0 header: 1D 76 30 m
+        if (gsv0Image[0] != 0x1D || gsv0Image[1] != 0x76 || gsv0Image[2] != 0x30) {
+            return new byte[][]{gsv0Image};
+        }
+
+        // Parse header
+        int xL = gsv0Image[4] & 0xFF;
+        int xH = gsv0Image[5] & 0xFF;
+        int yL = gsv0Image[6] & 0xFF;
+        int yH = gsv0Image[7] & 0xFF;
+        
+        int bytesPerLine = xL + xH * 256;
+        int totalLines = yL + yH * 256;
+
+        // Validate payload size
+        int expectedPayloadSize = bytesPerLine * totalLines;
+        int actualPayloadSize = gsv0Image.length - 8;
+        if (actualPayloadSize != expectedPayloadSize) {
+            return new byte[][]{gsv0Image};
+        }
+
+        // Calculate number of strips
+        int numStrips = (int) Math.ceil((double) totalLines / linesPerStrip);
+        byte[][] strips = new byte[numStrips][];
+
+        for (int stripIndex = 0; stripIndex < numStrips; stripIndex++) {
+            int startLine = stripIndex * linesPerStrip;
+            int endLine = Math.min(startLine + linesPerStrip, totalLines);
+            int stripLines = endLine - startLine;
+
+            // Create new GS v 0 command for this strip
+            int stripPayloadSize = bytesPerLine * stripLines;
+            byte[] strip = new byte[8 + stripPayloadSize];
+
+            // Copy header and update height
+            strip[0] = 0x1D;
+            strip[1] = 0x76;
+            strip[2] = 0x30;
+            strip[3] = gsv0Image[3]; // mode (m)
+            strip[4] = (byte) xL;
+            strip[5] = (byte) xH;
+            strip[6] = (byte) (stripLines % 256);
+            strip[7] = (byte) (stripLines / 256);
+
+            // Copy payload for this strip
+            System.arraycopy(
+                gsv0Image,
+                8 + startLine * bytesPerLine,
+                strip,
+                8,
+                stripPayloadSize
+            );
+
+            strips[stripIndex] = strip;
+        }
+
+        return strips;
     }
 
     /**

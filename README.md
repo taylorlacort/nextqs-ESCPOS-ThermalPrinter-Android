@@ -59,7 +59,7 @@ To test this library, it's pretty simple !
 
 ## Installation
 
-**Step 1.** Add the [JitPack](https://jitpack.io/#taylorlacort/nextqs-ESCPOS-ThermalPrinter-Android/7.0.0) repository to your build file. Add it in your root `/build.gradle` at the end of repositories:
+**Step 1.** Add the [JitPack](https://jitpack.io/#taylorlacort/nextqs-ESCPOS-ThermalPrinter-Android/7.0.1) repository to your build file. Add it in your root `/build.gradle` at the end of repositories:
 
 ```
 allprojects {
@@ -75,7 +75,7 @@ allprojects {
 ```
 dependencies {
     ...
-    implementation 'com.github.taylorlacort:nextqs-ESCPOS-ThermalPrinter-Android:7.0.0'
+    implementation 'com.github.taylorlacort:nextqs-ESCPOS-ThermalPrinter-Android:7.0.1'
 }
 ```
 
@@ -286,6 +286,73 @@ EscPosPrinter printer = new EscPosPrinter(deviceConnection, 203, 48f, 32, new Es
 `escPosCharsetId` may change with printer model.
 [Follow this link to find `escPosCharsetId` that works with many printers](https://www.epson-biz.com/modules/ref_escpos/index.php?content_id=32)
 
+## Gertec Printer Compatibility (Image Slicing)
+
+Some printer models (like Gertec) have firmware limitations when processing large continuous raster images (logos, QR codes). When printing large images, the printer may freeze or stop responding, causing subsequent text not to be printed.
+
+This library includes an **image slicing feature** (available since version 7.0.0) that automatically splits large images into smaller vertical strips to prevent these issues.
+
+### How to Enable Image Slicing
+
+```java
+EscPosPrinter printer = new EscPosPrinter(BluetoothPrintersConnections.selectFirstPaired(), 203, 48f, 32);
+
+// Enable image slicing for Gertec and similar problematic printers
+printer
+    .setImageSlicing(true)              // Enable slicing
+    .setImageSliceLinesPerStrip(20)     // Set lines per strip (default: 20, range: 10-50)
+    .printFormattedText(
+        "[C]<img>" + PrinterTextParserImg.bitmapToHexadecimalString(printer, logo) + "</img>\n" +
+        "[C]<qrcode size='40'>https://example.com/</qrcode>\n" +
+        "[L]Text continues printing normally after image\n"
+    );
+```
+
+### How It Works
+
+When image slicing is enabled:
+1. Large images (logos, QR codes) are split into horizontal strips of configurable height
+2. Each strip is sent to the printer as a separate ESC/POS `GS v 0` command
+3. A line feed and small delay are inserted between strips for proper recovery
+4. The printer processes each strip independently, preventing buffer overflow or timeout issues
+
+### Configuration
+
+- **Default behavior**: Slicing is **disabled** (all images sent as single command)
+- **Enable for Gertec**: Call `setImageSlicing(true)` before printing
+- **Lines per strip**: Default is **20 lines** (recommended range: 10-50)
+  - **Lower values** (10-20): Safer for problematic printers, but slower printing
+  - **Higher values** (30-50): Faster printing, but may still cause issues on some models
+  - **Very high values** (100+): Defeats the purpose of slicing
+
+### Example: Detect Gertec and Enable Slicing Automatically
+
+```java
+public void printReceipt(DeviceConnection connection, boolean isGertec) {
+    EscPosPrinter printer = new EscPosPrinter(connection, 203, 48f, 32);
+    
+    if (isGertec) {
+        printer
+            .setImageSlicing(true)
+            .setImageSliceLinesPerStrip(20);
+    }
+    
+    printer.printFormattedText(
+        "[C]<img>" + logoHex + "</img>\n" +
+        "[C]<qrcode size='40'>ORDER-12345</qrcode>\n" +
+        "[L]Order details here...\n"
+    );
+}
+```
+
+### Technical Details
+
+- The slicing algorithm splits the ESC/POS `GS v 0` raster command (format: `1D 76 30 m xL xH yL yH [payload]`)
+- Each strip is a complete `GS v 0` command with recalculated height
+- A line feed (`0x0A`) and 50ms delay are inserted between strips
+- Applies to all images: logos (`<img>`), QR codes (`<qrcode>`), and barcodes rendered as images
+- No visual difference in output—the splits are invisible to the end user
+
 ## Formatted text : syntax guide
 
 ### New line
@@ -472,6 +539,16 @@ Convert the mmSize variable from millimeters to dot.
 #### Method : `useEscAsteriskCommand(boolean enable)`
 Active "ESC *" command for image printing.
 - **param** `boolean enable` : true to use "ESC *", false to use "GS v 0"
+- **return** `Printer` : Fluent interface
+
+#### Method : `setImageSlicing(boolean enable)`
+Enable or disable automatic image slicing for compatibility with printers like Gertec. When enabled, large images and QR codes are split into smaller vertical strips to prevent firmware freezes on printers that have issues with continuous large raster data.
+- **param** `boolean enable` : true to enable slicing, false to disable (default: false)
+- **return** `Printer` : Fluent interface
+
+#### Method : `setImageSliceLinesPerStrip(int linesPerStrip)`
+Set the number of lines per strip when image slicing is enabled. Lower values (e.g., 20) are safer for problematic printers but slower. Higher values (e.g., 50-100) are faster but may cause issues on some models.
+- **param** `int linesPerStrip` : Number of raster lines per strip (default: 20, recommended range: 10-50)
 - **return** `Printer` : Fluent interface
 
 #### Method : `printFormattedText(String text)`

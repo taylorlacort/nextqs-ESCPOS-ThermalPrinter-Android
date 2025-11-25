@@ -80,6 +80,31 @@ public class EscPosPrinter extends EscPosPrinterSize {
     }
 
     /**
+     * Enable or disable automatic image slicing for compatibility with printers like Gertec.
+     * When enabled, large images and QR codes are split into smaller vertical strips to prevent firmware freezes.
+     *
+     * @param enable true to enable slicing, false to disable
+     * @return Fluent interface
+     */
+    public EscPosPrinter setImageSlicing(boolean enable) {
+        this.printer.setImageSlicing(enable);
+        return this;
+    }
+
+    /**
+     * Set the number of lines per strip when image slicing is enabled.
+     * Lower values (e.g., 20) are safer for problematic printers but slower.
+     * Higher values (e.g., 50-100) are faster but may cause issues on some models.
+     *
+     * @param linesPerStrip Number of raster lines per strip (default: 20, recommended range: 10-50)
+     * @return Fluent interface
+     */
+    public EscPosPrinter setImageSliceLinesPerStrip(int linesPerStrip) {
+        this.printer.setImageSliceLinesPerStrip(linesPerStrip);
+        return this;
+    }
+
+    /**
      * Print a formatted text. Read the README.md for more information about text formatting options.
      *
      * @param text Formatted text to be printed.
