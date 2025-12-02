@@ -930,8 +930,8 @@ public class EscPosPrinterCommands {
             return new byte[][]{gsv0Image};
         }
 
-        int numStrips = (int) Math.ceil((double) totalLines / linesPerStrip);
-        byte[][] strips = new byte[numStrips];
+    int numStrips = (int) Math.ceil((double) totalLines / linesPerStrip);
+    byte[][] strips = new byte[numStrips][];
 
         int padTotal = targetPrintableBytes - originalBytesPerLine;
         int padLeft = padTotal / 2;
