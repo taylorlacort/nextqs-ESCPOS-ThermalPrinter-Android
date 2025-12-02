@@ -79,6 +79,9 @@ public class EscPosPrinterCommands {
     public static final int QRCODE_1 = 49;
     public static final int QRCODE_2 = 50;
 
+    // When >0, image strips will be centered into this many bytes per line
+    private int imagePrintableBytes = 0;
+
     private DeviceConnection printerConnection;
     private EscPosCharsetEncoding charsetEncoding;
     private boolean useEscAsteriskCommand;
@@ -601,8 +604,25 @@ public class EscPosPrinterCommands {
         if (this.useEscAsteriskCommand) {
             bytesToPrint = EscPosPrinterCommands.convertGSv0ToEscAsterisk(image);
         } else if (this.enableImageSlicing) {
-            // Slice the image into strips
-            byte[][] strips = EscPosPrinterCommands.sliceGSv0Image(image, this.imageSliceLinesPerStrip);
+            // Slice the image into strips. If printable width set, center each strip horizontally.
+            byte[][] strips;
+            if (this.imagePrintableBytes > 0) {
+                // Try to parse original bytesPerLine from header
+                if (image != null && image.length >= 8) {
+                    int xL = image[4] & 0xFF;
+                    int xH = image[5] & 0xFF;
+                    int originalBytesPerLine = xL + xH * 256;
+                    if (this.imagePrintableBytes > originalBytesPerLine) {
+                        strips = EscPosPrinterCommands.centerAndSliceGSv0Image(image, this.imageSliceLinesPerStrip, this.imagePrintableBytes);
+                    } else {
+                        strips = EscPosPrinterCommands.sliceGSv0Image(image, this.imageSliceLinesPerStrip);
+                    }
+                } else {
+                    strips = EscPosPrinterCommands.sliceGSv0Image(image, this.imageSliceLinesPerStrip);
+                }
+            } else {
+                strips = EscPosPrinterCommands.sliceGSv0Image(image, this.imageSliceLinesPerStrip);
+            }
             bytesToPrint = strips;
         } else {
             bytesToPrint = new byte[][]{image};
@@ -785,6 +805,28 @@ public class EscPosPrinterCommands {
     }
 
     /**
+     * Set the printable image width in pixels. Internally converted to bytes per line (8 pixels per byte).
+     * When set, image strips will be centered horizontally into this printable width.
+     * @param px width in pixels
+     * @return Fluent interface
+     */
+    public EscPosPrinterCommands setImagePrintableWidthPx(int px) {
+        int bytes = Math.max(1, (px + 7) / 8);
+        this.imagePrintableBytes = bytes;
+        return this;
+    }
+
+    /**
+     * Set the printable image width directly in bytes per line.
+     * @param bytes width in bytes per line
+     * @return Fluent interface
+     */
+    public EscPosPrinterCommands setImagePrintableWidthBytes(int bytes) {
+        this.imagePrintableBytes = Math.max(1, bytes);
+        return this;
+    }
+
+    /**
      * Split a GS v 0 raster image into multiple smaller vertical strips.
      * Each strip is a complete GS v 0 command with recalculated height.
      *
@@ -849,6 +891,92 @@ public class EscPosPrinterCommands {
                 8,
                 stripPayloadSize
             );
+
+            strips[stripIndex] = strip;
+        }
+
+        return strips;
+    }
+
+    /**
+     * Center the GSv0 image horizontally into targetPrintableBytes and split into strips.
+     * If targetPrintableBytes <= original bytes per line, falls back to sliceGSv0Image.
+     */
+    private static byte[][] centerAndSliceGSv0Image(byte[] gsv0Image, int linesPerStrip, int targetPrintableBytes) {
+        if (gsv0Image == null || gsv0Image.length < 8) {
+            return new byte[][]{gsv0Image};
+        }
+
+        // Validate GS v 0 header
+        if (gsv0Image[0] != 0x1D || gsv0Image[1] != 0x76 || gsv0Image[2] != 0x30) {
+            return new byte[][]{gsv0Image};
+        }
+
+        int xL = gsv0Image[4] & 0xFF;
+        int xH = gsv0Image[5] & 0xFF;
+        int yL = gsv0Image[6] & 0xFF;
+        int yH = gsv0Image[7] & 0xFF;
+        int originalBytesPerLine = xL + xH * 256;
+        int totalLines = yL + yH * 256;
+
+        if (targetPrintableBytes <= originalBytesPerLine) {
+            return sliceGSv0Image(gsv0Image, linesPerStrip);
+        }
+
+        // Validate payload size
+        int expectedPayloadSize = originalBytesPerLine * totalLines;
+        int actualPayloadSize = gsv0Image.length - 8;
+        if (actualPayloadSize != expectedPayloadSize) {
+            return new byte[][]{gsv0Image};
+        }
+
+        int numStrips = (int) Math.ceil((double) totalLines / linesPerStrip);
+        byte[][] strips = new byte[numStrips];
+
+        int padTotal = targetPrintableBytes - originalBytesPerLine;
+        int padLeft = padTotal / 2;
+        int padRight = padTotal - padLeft;
+
+        for (int stripIndex = 0; stripIndex < numStrips; stripIndex++) {
+            int startLine = stripIndex * linesPerStrip;
+            int endLine = Math.min(startLine + linesPerStrip, totalLines);
+            int stripLines = endLine - startLine;
+
+            int stripPayloadSize = targetPrintableBytes * stripLines;
+            byte[] strip = new byte[8 + stripPayloadSize];
+
+            // header
+            strip[0] = 0x1D;
+            strip[1] = 0x76;
+            strip[2] = 0x30;
+            strip[3] = gsv0Image[3]; // mode
+            strip[4] = (byte) (targetPrintableBytes & 0xFF);
+            strip[5] = (byte) ((targetPrintableBytes >> 8) & 0xFF);
+            strip[6] = (byte) (stripLines & 0xFF);
+            strip[7] = (byte) ((stripLines >> 8) & 0xFF);
+
+            // Build payload: for each line, padLeft zeros, original line bytes, padRight zeros
+            for (int line = 0; line < stripLines; line++) {
+                int srcOffset = 8 + (startLine + line) * originalBytesPerLine;
+                int destOffset = 8 + line * targetPrintableBytes;
+
+                // pad left
+                if (padLeft > 0) {
+                    for (int p = 0; p < padLeft; p++) {
+                        strip[destOffset + p] = 0x00;
+                    }
+                }
+
+                // copy original line
+                System.arraycopy(gsv0Image, srcOffset, strip, destOffset + padLeft, originalBytesPerLine);
+
+                // pad right
+                if (padRight > 0) {
+                    for (int p = 0; p < padRight; p++) {
+                        strip[destOffset + padLeft + originalBytesPerLine + p] = 0x00;
+                    }
+                }
+            }
 
             strips[stripIndex] = strip;
         }

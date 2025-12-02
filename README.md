@@ -390,6 +390,21 @@ String text =
 - Before QR code: **No blank line needed**
 - Between products: **No blank line needed** (only between sections if necessary)
 
+## New: Native image centering (v7.0.2+)
+
+If your printer (like Gertec) ignores ESC alignment commands, you can now center images natively by specifying the printable width in pixels.
+
+Java API (EscPosPrinter):
+
+```java
+// Set printable width in pixels (e.g. 40mm at 203 dpi -> ~320px)
+printer.setImagePrintableWidthPx(320);
+// Enable image slicing as usual
+printer.setImageSlicing(true).setImageSliceLinesPerStrip(20);
+```
+
+The library will center each strip horizontally into the target printable width (padding with zero bytes at left/right) before sending, ensuring logos and QR codes are visually centered even if ESC ALIGN is ignored by the printer.
+
 ### New line
 
 Use `\n` to create a new line of text.

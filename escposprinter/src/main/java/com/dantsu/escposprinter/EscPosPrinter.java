@@ -92,6 +92,22 @@ public class EscPosPrinter extends EscPosPrinterSize {
     }
 
     /**
+     * Set printable width for images (in pixels). Images will be centered into this width when slicing.
+     */
+    public EscPosPrinter setImagePrintableWidthPx(int px) {
+        this.printer.setImagePrintableWidthPx(px);
+        return this;
+    }
+
+    /**
+     * Set printable width for images (in bytes per line).
+     */
+    public EscPosPrinter setImagePrintableWidthBytes(int bytes) {
+        this.printer.setImagePrintableWidthBytes(bytes);
+        return this;
+    }
+
+    /**
      * Set the number of lines per strip when image slicing is enabled.
      * Lower values (e.g., 20) are safer for problematic printers but slower.
      * Higher values (e.g., 50-100) are faster but may cause issues on some models.
