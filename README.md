@@ -1,6 +1,6 @@
 [![](https://jitpack.io/v/taylorlacort/nextqs-ESCPOS-ThermalPrinter-Android.svg)](https://jitpack.io/#taylorlacort/nextqs-ESCPOS-ThermalPrinter-Android)
 
-> **📢 Latest Version: 7.0.2** - Fixed image slicing to maintain visual continuity (no line breaks between strips)
+> **📢 Latest Version: 7.0.3** - Fixed logo centering for Gertec printers and improved image slicing
 
 # Android library for ESC/POS Thermal Printer
 
