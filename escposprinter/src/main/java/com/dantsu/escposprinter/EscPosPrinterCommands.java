@@ -785,6 +785,7 @@ public class EscPosPrinterCommands {
      * Enable or disable automatic image slicing for compatibility with printers like Gertec.
      * When enabled, large images are split into smaller vertical strips to prevent firmware freezes.
      *
+     * @author Taylor Lacort
      * @param enable true to enable slicing, false to disable
      * @return Fluent interface
      */
@@ -794,8 +795,19 @@ public class EscPosPrinterCommands {
     }
 
     /**
+     * Get the current state of image slicing.
+     *
+     * @author Taylor Lacort
+     * @return true if image slicing is enabled, false otherwise
+     */
+    public boolean isImageSlicingEnabled() {
+        return this.enableImageSlicing;
+    }
+
+    /**
      * Set the number of lines per strip when image slicing is enabled.
      *
+     * @author Taylor Lacort
      * @param linesPerStrip Number of raster lines per strip (default: 20)
      * @return Fluent interface
      */
@@ -807,6 +819,8 @@ public class EscPosPrinterCommands {
     /**
      * Set the printable image width in pixels. Internally converted to bytes per line (8 pixels per byte).
      * When set, image strips will be centered horizontally into this printable width.
+     * 
+     * @author Taylor Lacort
      * @param px width in pixels
      * @return Fluent interface
      */
@@ -818,6 +832,8 @@ public class EscPosPrinterCommands {
 
     /**
      * Set the printable image width directly in bytes per line.
+     * 
+     * @author Taylor Lacort
      * @param bytes width in bytes per line
      * @return Fluent interface
      */
@@ -830,6 +846,7 @@ public class EscPosPrinterCommands {
      * Split a GS v 0 raster image into multiple smaller vertical strips.
      * Each strip is a complete GS v 0 command with recalculated height.
      *
+     * @author Taylor Lacort
      * @param gsv0Image Original GS v 0 image bytes
      * @param linesPerStrip Number of raster lines per strip
      * @return Array of byte arrays, each containing a complete GS v 0 strip command
@@ -901,6 +918,8 @@ public class EscPosPrinterCommands {
     /**
      * Center the GSv0 image horizontally into targetPrintableBytes and split into strips.
      * If targetPrintableBytes <= original bytes per line, falls back to sliceGSv0Image.
+     * 
+     * @author Taylor Lacort
      */
     private static byte[][] centerAndSliceGSv0Image(byte[] gsv0Image, int linesPerStrip, int targetPrintableBytes) {
         if (gsv0Image == null || gsv0Image.length < 8) {

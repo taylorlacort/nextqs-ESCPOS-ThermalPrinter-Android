@@ -83,6 +83,7 @@ public class EscPosPrinter extends EscPosPrinterSize {
      * Enable or disable automatic image slicing for compatibility with printers like Gertec.
      * When enabled, large images and QR codes are split into smaller vertical strips to prevent firmware freezes.
      *
+     * @author Taylor Lacort
      * @param enable true to enable slicing, false to disable
      * @return Fluent interface
      */
@@ -93,6 +94,8 @@ public class EscPosPrinter extends EscPosPrinterSize {
 
     /**
      * Set printable width for images (in pixels). Images will be centered into this width when slicing.
+     * 
+     * @author Taylor Lacort
      */
     public EscPosPrinter setImagePrintableWidthPx(int px) {
         this.printer.setImagePrintableWidthPx(px);
@@ -101,6 +104,8 @@ public class EscPosPrinter extends EscPosPrinterSize {
 
     /**
      * Set printable width for images (in bytes per line).
+     * 
+     * @author Taylor Lacort
      */
     public EscPosPrinter setImagePrintableWidthBytes(int bytes) {
         this.printer.setImagePrintableWidthBytes(bytes);
@@ -112,12 +117,23 @@ public class EscPosPrinter extends EscPosPrinterSize {
      * Lower values (e.g., 20) are safer for problematic printers but slower.
      * Higher values (e.g., 50-100) are faster but may cause issues on some models.
      *
+     * @author Taylor Lacort
      * @param linesPerStrip Number of raster lines per strip (default: 20, recommended range: 10-50)
      * @return Fluent interface
      */
     public EscPosPrinter setImageSliceLinesPerStrip(int linesPerStrip) {
         this.printer.setImageSliceLinesPerStrip(linesPerStrip);
         return this;
+    }
+
+    /**
+     * Get the EscPosPrinterCommands instance to access low-level printer commands.
+     *
+     * @author Taylor Lacort
+     * @return EscPosPrinterCommands instance
+     */
+    public EscPosPrinterCommands getPrinter() {
+        return this.printer;
     }
 
     /**

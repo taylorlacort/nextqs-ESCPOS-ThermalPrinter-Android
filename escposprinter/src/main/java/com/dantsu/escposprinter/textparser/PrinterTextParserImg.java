@@ -138,6 +138,7 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
     /**
      * Create new instance of PrinterTextParserImg.
      *
+     * @author Taylor Lacort
      * @param printerTextParserColumn Parent PrinterTextParserColumn instance.
      * @param textAlign Set the image alignment. Use PrinterTextParser.TAGS_ALIGN_... constants.
      * @param image Bytes contain the image in ESC/POS command.
@@ -152,22 +153,33 @@ public class PrinterTextParserImg implements IPrinterTextParserElement {
                 nbrByteDiff = (int) Math.floor(((float) (printer.getPrinterWidthPx() - width)) / 8f),
                 nbrWhiteByteToInsert = 0;
 
-        switch (textAlign) {
-            case PrinterTextParser.TAGS_ALIGN_CENTER:
-                nbrWhiteByteToInsert = Math.round(((float) nbrByteDiff) / 2f);
-                break;
-            case PrinterTextParser.TAGS_ALIGN_RIGHT:
-                nbrWhiteByteToInsert = nbrByteDiff;
-                break;
+        // IMPORTANTE: Para impressoras Gertec com fatiamento automático habilitado,
+        // NÃO adiciona padding aqui, pois o centerAndSliceGSv0Image já faz isso.
+        // Isso evita dupla centralização que causa desalinhamento.
+        boolean skipManualCentering = false;
+        if (printer.getPrinter() != null) {
+            skipManualCentering = printer.getPrinter().isImageSlicingEnabled();
         }
 
-        if (nbrWhiteByteToInsert > 0) {
-            int newByteWidth = byteWidth + nbrWhiteByteToInsert;
-            byte[] newImage = EscPosPrinterCommands.initGSv0Command(newByteWidth, height);
-            for (int i = 0; i < height; i++) {
-                System.arraycopy(image, (byteWidth * i + 8), newImage, (newByteWidth * i + nbrWhiteByteToInsert + 8), byteWidth);
+        if (!skipManualCentering) {
+            switch (textAlign) {
+                case PrinterTextParser.TAGS_ALIGN_CENTER:
+                    nbrWhiteByteToInsert = Math.round(((float) nbrByteDiff) / 2f);
+                    break;
+                case PrinterTextParser.TAGS_ALIGN_RIGHT:
+                    nbrWhiteByteToInsert = nbrByteDiff;
+                    break;
             }
-            image = newImage;
+
+            if (nbrWhiteByteToInsert > 0) {
+                int newByteWidth = byteWidth + nbrWhiteByteToInsert;
+                byte[] newImage = EscPosPrinterCommands.initGSv0Command(newByteWidth, height);
+                for (int i = 0; i < height; i++) {
+                    System.arraycopy(image, (byteWidth * i + 8), newImage, (newByteWidth * i + nbrWhiteByteToInsert + 8), byteWidth);
+                }
+                image = newImage;
+                byteWidth = newByteWidth;  // Atualiza byteWidth após adicionar padding
+            }
         }
 
         this.length = (int) Math.ceil(((float) byteWidth * 8) / ((float) printer.getPrinterCharSizeWidthPx()));
