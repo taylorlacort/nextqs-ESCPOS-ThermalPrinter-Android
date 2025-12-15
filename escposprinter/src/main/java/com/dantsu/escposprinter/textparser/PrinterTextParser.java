@@ -109,7 +109,7 @@ public class PrinterTextParser {
     
     private EscPosPrinter printer;
     private byte[][] textSize = {EscPosPrinterCommands.TEXT_SIZE_NORMAL};
-    private byte[][] textColor = {}; // sem default
+    private byte[][] textColor;
     private byte[][] textReverseColor = {EscPosPrinterCommands.TEXT_COLOR_REVERSE_OFF};
     private byte[][] textBold = {EscPosPrinterCommands.TEXT_WEIGHT_NORMAL};
     private byte[][] textUnderline = {EscPosPrinterCommands.TEXT_UNDERLINE_OFF};
@@ -118,6 +118,13 @@ public class PrinterTextParser {
     
     public PrinterTextParser(EscPosPrinter printer) {
         this.printer = printer;
+        // Para equipamentos Gertec (com imageSlicing habilitado), não definir cor padrão
+        // Para outros equipamentos, usar cor preta como padrão (compatibilidade com código antigo)
+        if (printer != null && printer.getPrinter() != null && printer.getPrinter().isImageSlicingEnabled()) {
+            this.textColor = new byte[0][];  // Sem cor padrão para Gertec
+        } else {
+            this.textColor = new byte[][]{EscPosPrinterCommands.TEXT_COLOR_BLACK};  // Cor preta padrão para outros
+        }
     }
     
     public EscPosPrinter getPrinter() {
